@@ -224,12 +224,11 @@
 			funcError: callbacks.error,
 			interval: settings.interval || Operator.CONNECT_INTERVAL,
 			timeout: settings.timeout || Operator.CONNECT_TIMEOUT,
+			connected: false,
 			ready: false,
 			connectIntervalId: null,
 			connectTimeoutId: null
 		};
-		Operator._connect(id);
-		Operator._connections[id].connectTimeoutId = setInterval(Operator._timeout.bind(Operator, id), Operator._connections[id].timeout);
 	};
 
 	/**
@@ -240,6 +239,24 @@
 	 */
 	Operator.isReady = function(id) {
 		return Operator._connections[id].ready;
+	};
+
+	/**
+	 * Navazani spojeni.
+	 *
+	 * @param  {string} id
+	 */
+	Operator.connect = function(id) {
+		if (Operator._connections[id].connected) {
+			return;
+		}
+		Operator._handshake(id);
+		if (!Operator._connections[id].ready) {
+			Operator._connections[id].connectIntervalId = setTimeout(Operator.connect.bind(Operator, id), Operator._connections[id].interval);
+			if (!Operator._connections[id].connectTimeoutId) {
+				Operator._connections[id].connectTimeoutId = setInterval(Operator._timeout.bind(Operator, id), Operator._connections[id].timeout);
+			}
+		}
 	};
 
 	/**
@@ -261,18 +278,6 @@
 	Operator._timeout = function(id) {
 		Operator._clearHandshakeMess(id);
 		Operator._connections[id].funcError({ type:"error" }, { reason:"timeout", delay:Operator._connections[id].timeout, msg:"Connection failed! Nobody answered." });
-	};
-
-	/**
-	 * Navazani spojeni.
-	 *
-	 * @param  {string} id
-	 */
-	Operator._connect = function(id) {
-		Operator._handshake(id);
-		if (!Operator._connections[id].ready) {
-			Operator._connections[id].connectIntervalId = setTimeout(Operator._connect.bind(Operator, id), Operator._connections[id].interval);
-		}
 	};
 
 	/**
@@ -325,7 +330,7 @@
 	 * @param  {string} id
 	 */
 	Operator._setReady = function(id) {
-		Operator._connections[id].ready = true;
+		Operator._connections[id].ready = Operator._connections[id].connected = true;
 		Operator._connections[id].funcReady({ type:"ready" });
 	};
 
@@ -389,6 +394,8 @@
 	 * @param {string}          [options.iframeId]
 	 * @param {(string|number)} [options.windowName]
 	 * @param {Object}          [options.windowInstance]
+	 * @param {number}          [options.interval]
+	 * @param {number}          [options.timeout]
 	 */
 	function WinCom(connectionId, options) {
 		options = options || {};
@@ -432,6 +439,10 @@
 				ready: this._ready.bind(this),
 				receive: this._receive.bind(this),
 				error: this._error.bind(this)
+			},
+			{
+				interval: options.interval || null,
+				timeout: options.timeout || null
 			}
 		);
 	}
@@ -445,6 +456,7 @@
 	 */
 	WinCom.prototype.post = function(msg) {
 		if (!Operator.isReady(this._connectionId)) {
+			Operator.connect(this._connectionId);
 			this._queue.add(this, "post", Array.prototype.slice.call(arguments));
 			return;
 		}
