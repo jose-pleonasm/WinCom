@@ -396,11 +396,14 @@
 	 * @param {Object}          [options.windowInstance]
 	 * @param {number}          [options.interval]
 	 * @param {number}          [options.timeout]
+	 * @param {boolean}         [options.directly]
 	 */
 	function WinCom(connectionId, options) {
-		options = options || {};
 		if (!connectionId) {
 			throw new Error("Argument connectionId must be specified.");
+		}
+		if (!options) {
+			throw new Error("Argument options must be specified.");
 		}
 		this._connectionId = connectionId;
 		this._targetOrigin = options.targetOrigin || "*";
@@ -445,6 +448,9 @@
 				timeout: options.timeout || null
 			}
 		);
+		if (options.directly) {
+			Operator.connect(this._connectionId);
+		}
 	}
 
 	_inherit(WinCom, Observable);
