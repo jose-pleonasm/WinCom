@@ -190,6 +190,7 @@
 	 */
 	Operator._connections = {};
 
+	//TODO: prejmenovat na launch
 	/**
 	 * Aktivuje operatora.
 	 */
