@@ -36,6 +36,46 @@
 	if (!Array.forEach) { 
 		Array.forEach = function(obj, cb, _this) { Array.prototype.forEach.call(obj, cb, _this); };
 	}
+	/** CustomEvent polyfill */
+	(function() {
+		if (!window.CustomEvent && document.createEventObject) { /* IE only */
+			window.CustomEvent = function(type, props) {
+				if (!arguments.length) { throw new Error("Not enough arguments"); }
+				var def = {
+					type: type,
+					bubbles: false,
+					cancelable: false,
+					detail: null
+				}
+				var event = document.createEventObject();
+				for (var p in def)   { event[p] = def[p];   }
+				for (var p in props) { event[p] = props[p]; }
+				return event;
+			}
+
+			return;
+		}
+
+		try {
+			new CustomEvent("test");
+		} catch (e) { /* ctor version not supported or no window.CustomEvent */
+			var CE = function (type, props) {
+				if (!arguments.length) { throw new Error("Not enough arguments"); }
+				var def = {
+					bubbles: false,
+					cancelable: false,
+					detail: null 
+				};
+				for (var p in props)   { def[p] = props[p];   }
+				var event = document.createEvent("CustomEvent");
+				event.initCustomEvent(type, def.bubbles, def.cancelable, def.detail);
+				return event;
+			};
+			
+			CE.prototype = (window.CustomEvent || window.Event).prototype;
+			window.CustomEvent = CE;
+		}
+	})();
 
 	/**
 	 * Realizuje dedicnost.
@@ -101,11 +141,11 @@
 	};
 
 	/**
-	 * Implmentace vzoru Subject dle navrhu Observer.
+	 * Emitter
 	 *
-	 * @class Observable
+	 * @class Emitter
 	 */
-	function Observable() {
+	function Emitter() {
 		this._listeners = {};
 	}
 
@@ -115,7 +155,7 @@
 	 * @param {string}   type
 	 * @param {Function} listener
 	 */
-	Observable.prototype.addEventListener = function(type, listener) {
+	Emitter.prototype.addEventListener = function(type, listener) {
 		if (!type || typeof type !== "string") {
 			throw new Error("Invalid argument type");
 		}
@@ -127,19 +167,36 @@
 	};
 
 	/**
-	 * Vytvori udalost.
+	 * Odebere posluchac na specifikovanou udalost.
 	 *
-	 * @protected
 	 * @param {string}   type
-	 * @param {*}        data
+	 * @param {Function} listener
 	 */
-	Observable.prototype.dispatchEvent = function(type, data) {
+	Emitter.prototype.removeEventListener = function(type, listener) {
 		if (!type || typeof type !== "string") {
 			throw new Error("Invalid argument type");
 		}
 		if (this._listeners[type]) {
-			this._listeners[type].forEach(function(listener) {
-				listener(type, data);
+			var index = this._listeners[type].indexOf(listener);
+			if (index > -1) {
+				this._listeners[type].splice(index, 1);
+			}
+		}
+	};
+
+	/**
+	 * Vytvori udalost.
+	 *
+	 * @protected
+	 * @param {object}   event
+	 */
+	Emitter.prototype.dispatchEvent = function(customEvent) {
+		if (!customEvent || typeof customEvent !== "object" || typeof customEvent.type === "undefined") {
+			throw new Error("Invalid argument event");
+		}
+		if (this._listeners[customEvent.type]) {
+			this._listeners[customEvent.type].forEach(function(func) {
+				func(customEvent);
 			}, this);
 		}
 	};
@@ -190,6 +247,7 @@
 	 */
 	Operator._connections = {};
 
+	//TODO: prejmenovat na launch
 	/**
 	 * Aktivuje operatora.
 	 */
@@ -382,7 +440,7 @@
 	 * Spojeni napric ruznymi instancemi window (cross frame).
 	 *
 	 * @class WinCom
-	 * @extends Observable
+	 * @extends Emitter
 	 * @param {string} connectionId ID spojeni.
 	 * @param {Object} options  Volby spojeni.
 	 * @param {string}          [options.targetOrigin]
@@ -436,7 +494,7 @@
 		);
 	}
 
-	_inherit(WinCom, Observable);
+	_inherit(WinCom, Emitter);
 
 	/**
 	 * Posle zpravu.
@@ -468,7 +526,7 @@
 	 * @param  {*}      data  Vlastni data, ktera odeslala druha strana.
 	 */
 	WinCom.prototype._receive = function(event, data) {
-		this.dispatchEvent("message", data);
+		this.dispatchEvent(new CustomEvent("message", {detail: data}));
 	};
 
 	/**
@@ -478,7 +536,7 @@
 	 * @param  {*}      data  Vlastni data, ktera odeslala druha strana.
 	 */
 	WinCom.prototype._error = function(event, data) {
-		this.dispatchEvent("error", data);
+		this.dispatchEvent(new CustomEvent("error", {detail: data}));
 	};
 
 
