@@ -7,7 +7,7 @@ Operator.STRING_ONLY = (function() {
 	return r;
 })();
 
-Operator.POSTPROOF_PACKET_MARK = "/*Operator:converted*/";
+Operator.POSTPROOF_PACKET_MARK = '/*WinCom.postproofpacket*/';
 
 Operator._connections = {};
 
