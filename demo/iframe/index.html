@@ -3,24 +3,18 @@
 	<head>
 		<meta charset="utf-8">
 
-		<title>Cross-frame-communication#host</title>
+		<title>WinCom / demo / host</title>
 
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 
-		<style type="text/css">
-			body {
-				background: #fff;
-			}
-		</style>
-
 		<script type="text/javascript" src="../../src/polyfills.js"></script>
 		<script type="text/javascript" src="../../src/WinCom.js"></script>
-		<script type="text/javascript" src="./app.js"></script>
+		<script type="text/javascript" src="./app-server.js"></script>
 	</head>
 	<body>
-		<iframe src="http://jose.stream.dev/static/WinCom/dev/iframe/index.html" id="testiframe" width="853" height="480"></iframe>
 		<script type="text/javascript">
-			App.run();
+			var app = new AppServer();
+			app.run();
 		</script>
 	</body>
 </html>
