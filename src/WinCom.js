@@ -1,71 +1,45 @@
 
-/** @namespace Operator */
-var Operator = {};
-
 /**
- * @typedef {Object} Operator~Packet
- * @property {string} channel
- * @property {*} msg
- */
-
-/**
- * @typedef {(Operator~Packet|string)} Operator~PostProofPacket
- */
-
-/**
- * @typedef {Object} Operator~MessageEvent
+ * @typedef {Object} MessageEvent
  * @property {string} origin
- * @property {Operator~PostProofPacket} data
+ * @property {WinCom~PostPacket} data
  */
 
-/** @constant {boolean} Operator.STRING_ONLY */
-Operator.STRING_ONLY = (function() {
+/** @namespace PacketUtil */
+var PacketUtil = {};
+
+/** @constant {boolean} PacketUtil.STRING_ONLY_POST */
+PacketUtil.STRING_ONLY_POST = (function() {
 	var r = false;
 	try { window.postMessage({ toString:function(){ r=true; } },'*'); } catch (e) {}
 	return r;
 })();
 
-/** @constant {string} Operator.POSTPROOF_PACKET_MARK */
-Operator.POSTPROOF_PACKET_MARK = '/*WinCom.postproofpacket*/';
-
-/** @type {Object} */
-Operator._connections = {};
+/** @constant {string} PacketUtil.POSTPROOF_PACKET_MARK */
+PacketUtil.POSTPROOF_PACKET_MARK = '/*WinCom.postproofpacket*/';
 
 /**
- * @function Operator.makePacket
- * @param  {string} channel
- * @param  {*} msg
- * @return {Operator~Packet}
+ * @function PacketUtil.postalize
+ * @param  {WinCom~Packet} packet
+ * @return {WinCom~PostPacket}
  */
-Operator.makePacket = function(channel, msg) {
-	return {
-		channel: channel,
-		msg: msg
-	};
-};
-
-/**
- * @function Operator.makePostProofPacket
- * @param  {Operator~Packet} packet
- * @return {Operator~PostProofPacket}
- */
-Operator.makePostProofPacket = function(packet) {
-	if (Operator.STRING_ONLY) {
-		packet = Operator.POSTPROOF_PACKET_MARK + JSON.stringify(packet);
+PacketUtil.postalize = function(packet) {
+	if (PacketUtil.STRING_ONLY_POST) {
+		packet = PacketUtil.POSTPROOF_PACKET_MARK + JSON.stringify(packet);
 	}
 
 	return packet;
 };
 
 /**
- * @function Operator.normalizePacket
- * @param  {Operator~PostProofPacket} packet
- * @return {Operator~Packet}
+ * @function PacketUtil.normalize
+ * @param  {WinCom~PostPacket} packet
+ * @return {WinCom~Packet}
  */
-Operator.normalizePacket = function(packet) {
+PacketUtil.normalize = function(packet) {
 	if (typeof packet === 'string'
-			&& packet.indexOf(Operator.POSTPROOF_PACKET_MARK) === 0) {
-		packet = packet.replace(Operator.CONVERTED_MSG_MARK, '');
+			&& packet.indexOf(PacketUtil.POSTPROOF_PACKET_MARK) === 0) {
+		packet = packet.replace(PacketUtil.CONVERTED_MSG_MARK, '');
 		packet = JSON.parse(packet);
 	}
 
@@ -73,48 +47,47 @@ Operator.normalizePacket = function(packet) {
 };
 
 /**
- * @function Operator.post
- * @param  {WinCom} communicator
- * @param  {*} msg
+ * @constructor Router
  */
-Operator.post = function(communicator, msg) {
-	var win = communicator.getTargetWindow();
-	var targetOrigin = communicator.getTargetOrigin();
-	var packet = Operator.makePacket(communicator.getChannel(), msg);
-	var postProofPacket = Operator.makePostProofPacket(packet);
+function Router() {
+	this._routes = {};
 
-	win.postMessage(postProofPacket, targetOrigin);
+	util.addEventListener(window, 'message', this._receiveMessage.bind(this));
+}
+
+/**
+ * @function Router#register
+ * @param  {string} origin
+ * @param  {string} channel
+ * @param  {function} callback
+ */
+Router.prototype.register = function(origin, channel, callback) {
+	this._routes[channel] = this._routes[channel] || [];
+	this._routes[channel].push({origin: origin, callback: callback});
 };
 
 /**
- * @function Operator.register
- * @param  {WinCom} communicator
+ * @function Router#_receiveMessage
+ * @param  {MessageEvent} event
  */
-Operator.register = function(communicator) {
-	var channel = communicator.getChannel();
-
-	Operator._connections[channel] = Operator._connections[channel] || [];
-	Operator._connections[channel].push(communicator);
-};
-
-/**
- * @function Operator.receiveMessage
- * @param  {Operator~MessageEvent} event
- */
-Operator.receiveMessage = function(event) {
+Router.prototype._receiveMessage = function(event) {
 	var origin = event.origin;
-	var postProofPacket = event.data;
-	var packet = Operator.normalizePacket(postProofPacket);
+	var dirtyPacket = event.data;
+	var packet = PacketUtil.normalize(dirtyPacket);
 	var channel = packet.channel;
-	var msg = packet.msg;
+	var msg = packet.body;
 
-	Operator._connections[channel].forEach(function(communicator) {
-		if (communicator.getTargetOrigin() === '*'
-				|| communicator.getTargetOrigin() === origin) {
-			communicator.process(msg);
+	this._routes[channel].forEach(function(handler) {
+		if (handler.origin === '*'
+				|| handler.origin === origin) {
+			handler.callback(msg);
 		}
 	});
 };
+
+/** @type {Router} */
+var router = new Router();
+
 
 /**
  * @constructor WinCom
@@ -128,9 +101,20 @@ function WinCom(options) {
 	this._targetOrigin = options.targetOrigin || '*';
 	this._channel = options.channel || WinCom.DEFAULT_CHANNEL;
 
-	Operator.register(this);
+	router.register(this._targetOrigin, this._channel,
+			this._handle.bind(this));
 }
 util.inherits(WinCom, Emitter);
+
+/**
+ * @typedef {Object} WinCom~Packet
+ * @property {string} channel
+ * @property {*} body
+ */
+
+/**
+ * @typedef {(WinCom~Packet|string)} WinCom~PostPacket
+ */
 
 /**
  * @event WinCom#message
@@ -166,25 +150,36 @@ WinCom.prototype.getChannel = function() {
 };
 
 /**
+ * @function WinCom#makePacket
+ * @param  {string} channel
+ * @param  {*} msg
+ * @return {WinCom~Packet}
+ */
+WinCom.prototype.makePacket = function(channel, msg) {
+	return {
+		channel: channel,
+		body: msg
+	};
+};
+
+/**
  * @function WinCom#post
  * @param  {*} msg
  */
 WinCom.prototype.post = function(msg) {
-	Operator.post(this, msg);
+	var packet = this._makePacket(this._channel, msg);
+	var postPacket = PacketUtil.postalize(packet);
+
+	this._targetWindow.postMessage(postPacket, this._targetOrigin);
 };
 
 /**
- * @function WinCom#process
+ * @function WinCom#_handle
  * @param  {*} msg
- * @fires WinCom#message
+ * @emits WinCom#message
  */
-WinCom.prototype.process = function(msg) {
+WinCom.prototype._handle = function(msg) {
 	var event = new CustomEvent('message', {detail: msg});
 
 	this.dispatchEvent(event);
 };
-
-
-(function() {
-	util.addEventListener(window, 'message', Operator.receiveMessage);
-})();
