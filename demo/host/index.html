@@ -19,10 +19,12 @@
 		<script type="text/javascript">
 			var iframe = document.getElementById('iframe');
 			var app = null;
-			iframe.onload = function() {
+			app = new AppClient(iframe.contentWindow);
+			app.run();
+			/*iframe.onload = function() {
 				app = new AppClient(iframe.contentWindow);
 				app.run();
-			};
+			};*/
 		</script>
 	</body>
 </html>

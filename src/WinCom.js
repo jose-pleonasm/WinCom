@@ -37,12 +37,12 @@ Operator.normalizePacket = function(packet) {
 };
 
 Operator.post = function(communicator, msg) {
-	var win = communicator.getWindow();
-	var origin = communicator.getOrigin();
+	var win = communicator.getTargetWindow();
+	var targetOrigin = communicator.getTargetOrigin();
 	var packet = Operator.makePacket(communicator.getChannel(), msg);
 	var postProofPacket = Operator.makePostProofPacket(packet);
 
-	win.postMessage(postProofPacket, origin);
+	win.postMessage(postProofPacket, targetOrigin);
 };
 
 Operator.register = function(communicator) {
@@ -53,13 +53,17 @@ Operator.register = function(communicator) {
 };
 
 Operator.receiveMessage = function(event) {
+	var origin = event.origin;
 	var postProofPacket = event.data;
 	var packet = Operator.normalizePacket(postProofPacket);
 	var channel = packet.channel;
 	var msg = packet.msg;
 
 	Operator._connections[channel].forEach(function(communicator) {
-		communicator.process(msg);
+		if (communicator.getTargetOrigin() === '*'
+				|| communicator.getTargetOrigin() === origin) {
+			communicator.process(msg);
+		}
 	});
 };
 
@@ -67,8 +71,8 @@ function WinCom(options) {
 	Emitter.call(this);
 
 	this._targetWindow = options.targetWindow;
+	this._targetOrigin = options.targetOrigin || '*';
 	this._channel = options.channel || WinCom.DEFAULT_CHANNEL;
-	this._origin = options.origin || '*';
 
 	Operator.register(this);
 }
@@ -76,16 +80,16 @@ util.inherits(WinCom, Emitter);
 
 WinCom.DEFAULT_CHANNEL = '__default__';
 
-WinCom.prototype.getWindow = function() {
+WinCom.prototype.getTargetWindow = function() {
 	return this._targetWindow;
+};
+
+WinCom.prototype.getTargetOrigin = function() {
+	return this._targetOrigin;
 };
 
 WinCom.prototype.getChannel = function() {
 	return this._channel;
-};
-
-WinCom.prototype.getOrigin = function() {
-	return this._origin;
 };
 
 WinCom.prototype.post = function(msg) {
@@ -93,7 +97,9 @@ WinCom.prototype.post = function(msg) {
 };
 
 WinCom.prototype.process = function(msg) {
-	this.dispatchEvent(new CustomEvent('message', {detail: msg}));
+	var event = new CustomEvent('message', {detail: msg});
+
+	this.dispatchEvent(event);
 };
 
 

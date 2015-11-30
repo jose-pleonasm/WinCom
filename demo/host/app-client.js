@@ -12,10 +12,12 @@
 	App.prototype.run = function() {
 		this._wc = new WinCom({
 			targetWindow: this._targetWindow,
+			targetOrigin: 'http://jose.stream.dev',
 			scope: 'test'
 		});
 		this._wc2 = new WinCom({
 			targetWindow: this._targetWindow,
+			targetOrigin: 'http://jose.stream.dev',
 			scope: 'test'
 		});
 
