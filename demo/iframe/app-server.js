@@ -9,7 +9,10 @@
 	}
 
 	App.prototype.run = function() {
-		this._wc = new WinCom(window.frames['parent'], 'test');
+		this._wc = new WinCom({
+			targetWindow: window.frames['parent'],
+			scope: 'test'
+		});
 
 		this._scene = window.document.createElement('div');
 		window.document.body.appendChild(this._scene);
@@ -27,7 +30,7 @@
 	};
 
 	App.prototype._receiveMessage = function(event) {
-		this._write('<em>' + event.origin + '</em>: ' + event.data);
+		this._write(event.detail);
 	};
 
 	App.prototype._write = function(msg) {

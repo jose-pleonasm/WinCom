@@ -18,8 +18,9 @@
 		<iframe id="iframe" src="//jose.stream.dev/static/WinCom/demo/iframe/index.html"></iframe>
 		<script type="text/javascript">
 			var iframe = document.getElementById('iframe');
+			var app = null;
 			iframe.onload = function() {
-				var app = new AppClient(iframe.contentWindow);
+				app = new AppClient(iframe.contentWindow);
 				app.run();
 			};
 		</script>

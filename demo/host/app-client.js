@@ -5,12 +5,22 @@
 
 	function App(targetWindow) {
 		this._targetWindow = targetWindow;
+		this._wc = null;
+		this._wc2 = null;
 	}
 
 	App.prototype.run = function() {
-		this._wc = new WinCom(this._targetWindow, 'test');
+		this._wc = new WinCom({
+			targetWindow: this._targetWindow,
+			scope: 'test'
+		});
+		this._wc2 = new WinCom({
+			targetWindow: this._targetWindow,
+			scope: 'test'
+		});
 
-		this._wc.addEventListener('message', this._receiveMessage.bind(this), false);
+		this._wc .addEventListener('message', this._receiveMessage.bind(this, '#1'), false);
+		this._wc2.addEventListener('message', this._receiveMessage.bind(this, '#2'), false);
 
 		setTimeout(
 			this.send.bind(this, 'Message from client', '*'),
@@ -22,7 +32,7 @@
 		this._wc.post(message, origin);
 	};
 
-	App.prototype._receiveMessage = function(event) {
-		console.log(event);
+	App.prototype._receiveMessage = function(id, event) {
+		console.info(id, event);
 	};
 })(window);
