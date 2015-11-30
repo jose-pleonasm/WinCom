@@ -8,7 +8,9 @@
 	}
 
 	App.prototype.run = function() {
-		window.addEventListener('message', this._receiveMessage.bind(this), false);
+		this._wc = new WinCom(this._targetWindow, 'test');
+
+		this._wc.addEventListener('message', this._receiveMessage.bind(this), false);
 
 		setTimeout(
 			this.send.bind(this, 'Message from client', '*'),
@@ -17,7 +19,7 @@
 	};
 
 	App.prototype.send = function(message, origin) {
-		this._targetWindow.postMessage(message, origin);
+		this._wc.post(message, origin);
 	};
 
 	App.prototype._receiveMessage = function(event) {

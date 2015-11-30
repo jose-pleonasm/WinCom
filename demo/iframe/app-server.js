@@ -4,14 +4,17 @@
 	ns.AppServer = App;
 
 	function App() {
+		this._wc = null;
 		this._scene = null;
 	}
 
 	App.prototype.run = function() {
+		this._wc = new WinCom(window.frames['parent'], 'test');
+
 		this._scene = window.document.createElement('div');
 		window.document.body.appendChild(this._scene);
 
-		window.addEventListener('message', this._receiveMessage.bind(this), false);
+		this._wc.addEventListener('message', this._receiveMessage.bind(this), false);
 
 		setTimeout(
 			this.send.bind(this, 'Message from server', '*'),
@@ -20,7 +23,7 @@
 	};
 
 	App.prototype.send = function(message, origin) {
-		window.frames['parent'].postMessage(message, origin);
+		this._wc.post(message, origin);
 	};
 
 	App.prototype._receiveMessage = function(event) {
