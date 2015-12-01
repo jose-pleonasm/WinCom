@@ -1,71 +1,71 @@
 
-/** @namespace Operator */
-var Operator = {};
-
 /**
- * @typedef {Object} Operator~Packet
- * @property {string} channel
- * @property {*} msg
- */
-
-/**
- * @typedef {(Operator~Packet|string)} Operator~PostProofPacket
- */
-
-/**
- * @typedef {Object} Operator~MessageEvent
+ * @typedef {Object} MessageEvent
  * @property {string} origin
- * @property {Operator~PostProofPacket} data
+ * @property {Intermediator~PostProofPacket} data
  */
 
-/** @constant {boolean} Operator.STRING_ONLY */
-Operator.STRING_ONLY = (function() {
+/** @namespace Intermediator */
+var Intermediator = {};
+
+/**
+ * @typedef {Object} Intermediator~Packet
+ * @property {string} channel
+ * @property {*} body
+ */
+
+/**
+ * @typedef {(Intermediator~Packet|string)} Intermediator~PostProofPacket
+ */
+
+/** @constant {boolean} Intermediator.STRING_ONLY */
+Intermediator.STRING_ONLY = (function() {
 	var r = false;
 	try { window.postMessage({ toString:function(){ r=true; } },'*'); } catch (e) {}
 	return r;
 })();
 
-/** @constant {string} Operator.POSTPROOF_PACKET_MARK */
-Operator.POSTPROOF_PACKET_MARK = '/*WinCom.postproofpacket*/';
+/** @constant {string} Intermediator.POSTPROOF_PACKET_MARK */
+Intermediator.POSTPROOF_PACKET_MARK = '/*WinCom.postproofpacket*/';
 
 /** @type {Object} */
-Operator._connections = {};
+Intermediator._connections = {};
 
 /**
- * @function Operator.makePacket
+ * @function Intermediator.makePacket
  * @param  {string} channel
  * @param  {*} msg
- * @return {Operator~Packet}
+ * @return {Intermediator~Packet}
  */
-Operator.makePacket = function(channel, msg) {
+Intermediator.makePacket = function(channel, msg) {
 	return {
 		channel: channel,
-		msg: msg
+		body: msg
 	};
 };
 
 /**
- * @function Operator.makePostProofPacket
- * @param  {Operator~Packet} packet
- * @return {Operator~PostProofPacket}
+ * @function Intermediator.postalize
+ * @param  {Intermediator~Packet} packet
+ * @return {Intermediator~PostProofPacket}
  */
-Operator.makePostProofPacket = function(packet) {
-	if (Operator.STRING_ONLY) {
-		packet = Operator.POSTPROOF_PACKET_MARK + JSON.stringify(packet);
+Intermediator.postalize = function(packet) {
+	if (Intermediator.STRING_ONLY) {
+		packet = Intermediator.POSTPROOF_PACKET_MARK + JSON.stringify(packet);
 	}
 
 	return packet;
 };
 
 /**
- * @function Operator.normalizePacket
- * @param  {Operator~PostProofPacket} packet
- * @return {Operator~Packet}
+ * @function Intermediator.normalize
+ * @param  {Intermediator~PostProofPacket} packet
+ * @return {Intermediator~Packet}
  */
-Operator.normalizePacket = function(packet) {
+Intermediator.normalize = function(packet) {
 	if (typeof packet === 'string'
-			&& packet.indexOf(Operator.POSTPROOF_PACKET_MARK) === 0) {
-		packet = packet.replace(Operator.CONVERTED_MSG_MARK, '');
+			&& packet.indexOf(Intermediator.POSTPROOF_PACKET_MARK) === 0) {
+		packet = packet.replace(Intermediator.CONVERTED_MSG_MARK, '');
 		packet = JSON.parse(packet);
 	}
 
@@ -73,48 +73,59 @@ Operator.normalizePacket = function(packet) {
 };
 
 /**
- * @function Operator.post
+ * @function Intermediator.post
  * @param  {WinCom} communicator
  * @param  {*} msg
  */
-Operator.post = function(communicator, msg) {
+Intermediator.post = function(communicator, msg) {
 	var win = communicator.getTargetWindow();
 	var targetOrigin = communicator.getTargetOrigin();
-	var packet = Operator.makePacket(communicator.getChannel(), msg);
-	var postProofPacket = Operator.makePostProofPacket(packet);
+	var packet = Intermediator.makePacket(communicator.getChannel(), msg);
+	var postProofPacket = Intermediator.postalize(packet);
 
 	win.postMessage(postProofPacket, targetOrigin);
 };
 
 /**
- * @function Operator.register
+ * @function Intermediator.register
  * @param  {WinCom} communicator
  */
-Operator.register = function(communicator) {
+Intermediator.register = function(communicator) {
 	var channel = communicator.getChannel();
 
-	Operator._connections[channel] = Operator._connections[channel] || [];
-	Operator._connections[channel].push(communicator);
+	Intermediator._connections[channel] = Intermediator._connections[channel] || [];
+	Intermediator._connections[channel].push(communicator);
 };
 
 /**
- * @function Operator.receiveMessage
- * @param  {Operator~MessageEvent} event
+ * @function Intermediator.launch
  */
-Operator.receiveMessage = function(event) {
+Intermediator.launch = function() {
+	util.addEventListener(window, 'message', Intermediator._receiveMessage);
+};
+
+/**
+ * @function Intermediator._receiveMessage
+ * @param  {MessageEvent} event
+ */
+Intermediator._receiveMessage = function(event) {
 	var origin = event.origin;
 	var postProofPacket = event.data;
-	var packet = Operator.normalizePacket(postProofPacket);
+	var packet = Intermediator.normalize(postProofPacket);
 	var channel = packet.channel;
-	var msg = packet.msg;
+	var msg = packet.body;
 
-	Operator._connections[channel].forEach(function(communicator) {
+	Intermediator._connections[channel].forEach(function(communicator) {
 		if (communicator.getTargetOrigin() === '*'
 				|| communicator.getTargetOrigin() === origin) {
 			communicator.process(msg);
 		}
 	});
 };
+
+
+Intermediator.launch();
+
 
 /**
  * @constructor WinCom
@@ -128,7 +139,7 @@ function WinCom(options) {
 	this._targetOrigin = options.targetOrigin || '*';
 	this._channel = options.channel || WinCom.DEFAULT_CHANNEL;
 
-	Operator.register(this);
+	Intermediator.register(this);
 }
 util.inherits(WinCom, Emitter);
 
@@ -170,7 +181,7 @@ WinCom.prototype.getChannel = function() {
  * @param  {*} msg
  */
 WinCom.prototype.post = function(msg) {
-	Operator.post(this, msg);
+	Intermediator.post(this, msg);
 };
 
 /**
@@ -183,8 +194,3 @@ WinCom.prototype.process = function(msg) {
 
 	this.dispatchEvent(event);
 };
-
-
-(function() {
-	util.addEventListener(window, 'message', Operator.receiveMessage);
-})();

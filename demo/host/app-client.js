@@ -17,7 +17,6 @@
 		});
 		this._wc2 = new WinCom({
 			targetWindow: this._targetWindow,
-			targetOrigin: 'http://jose.stream.dev',
 			scope: 'test'
 		});
 
