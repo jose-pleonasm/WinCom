@@ -93,8 +93,11 @@ Intermediator.post = function(communicator, msg) {
 Intermediator.register = function(communicator) {
 	var channel = communicator.getChannel();
 
-	Intermediator._connections[channel] = Intermediator._connections[channel] || [];
-	Intermediator._connections[channel].push(communicator);
+	if (Intermediator._connections[channel]) {
+		throw new Error('Channel "' + channel + '" is already in use.');
+	}
+
+	Intermediator._connections[channel] = communicator;
 };
 
 /**
@@ -114,13 +117,13 @@ Intermediator._receiveMessage = function(event) {
 	var packet = Intermediator.normalize(postProofPacket);
 	var channel = packet.channel;
 	var msg = packet.body;
+	var communicator = Intermediator._connections[channel];
 
-	Intermediator._connections[channel].forEach(function(communicator) {
-		if (communicator.getTargetOrigin() === '*'
-				|| communicator.getTargetOrigin() === origin) {
-			communicator.process(msg);
-		}
-	});
+	if (communicator
+			&& (communicator.getTargetOrigin() === '*'
+				|| communicator.getTargetOrigin() === origin)) {
+		communicator.process(msg);
+	}
 };
 
 

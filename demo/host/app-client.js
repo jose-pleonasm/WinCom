@@ -13,11 +13,11 @@
 		this._wc = new WinCom({
 			targetWindow: this._targetWindow,
 			targetOrigin: 'http://jose.stream.dev',
-			scope: 'test'
+			channel: 'test'
 		});
 		this._wc2 = new WinCom({
 			targetWindow: this._targetWindow,
-			scope: 'test'
+			channel: 'foo'
 		});
 
 		this._wc .addEventListener('message', this._receiveMessage.bind(this, '#1'), false);

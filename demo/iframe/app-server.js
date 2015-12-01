@@ -11,7 +11,7 @@
 	App.prototype.run = function() {
 		this._wc = new WinCom({
 			targetWindow: window.frames['parent'],
-			scope: 'test'
+			channel: 'test'
 		});
 
 		this._scene = window.document.createElement('div');
